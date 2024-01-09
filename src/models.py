@@ -1,12 +1,37 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Column
+from sqlalchemy import Table
+from typing import List
+from typing import Optional
+from sqlalchemy import ForeignKey
+from sqlalchemy import String, Integer, Float, Boolean
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import relationship
+from flask import Flask
 
-db = SQLAlchemy()
+class Base(DeclarativeBase):
+  pass
+
+db = SQLAlchemy(model_class=Base)
+
+
+association_table = Table('association', Base.metadata,
+    Column('user_id', Integer, ForeignKey('user.id'), primary_key=True),
+    Column('planet_id', Integer, ForeignKey('planet.id'), nullable=True, primary_key=True),
+    Column('character_id', Integer, ForeignKey('character.id'), nullable=True, primary_key=True)
+)
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(80), unique=False, nullable=False)
-    is_active = db.Column(db.Boolean(), unique=False, nullable=False)
+    __tablename__ = 'user'
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+    username: Mapped[str]  = mapped_column(unique=True, nullable=False)
+    name: Mapped[str]
+    last_name: Mapped[Optional[str]] = mapped_column()
+    email: Mapped[str] 
+    country: Mapped[Optional[str]] = mapped_column()
+    planets: Mapped[List["Planet"]] = relationship(secondary=association_table, back_populates='users')
+    characters: Mapped[List["Character"]] = relationship(secondary=association_table, back_populates='users')
 
     def __repr__(self):
         return '<User %r>' % self.username
@@ -15,5 +40,42 @@ class User(db.Model):
         return {
             "id": self.id,
             "email": self.email,
-            # do not serialize the password, its a security breach
+        }
+
+class Planet(db.Model):
+    __tablename__ = 'planet'
+    id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+    name: Mapped[str] 
+    population: Mapped[int] = mapped_column(nullable=True)
+    gravity: Mapped[int] = mapped_column(nullable=True)
+    climate: Mapped[str] = mapped_column(nullable=True)
+    users: Mapped[List["User"]] = relationship(secondary=association_table, back_populates='planets')
+
+    def __repr__(self):
+        return '<Planet %r>' % self.name
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+   
+
+class Character(db.Model):
+    __tablename__ = 'character'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, unique=True)
+    name: Mapped[str] 
+    last_name: Mapped[str] = mapped_column(nullable=True)
+    eye_color: Mapped[str] = mapped_column(nullable=True)
+    height: Mapped[int] = mapped_column(nullable=True)
+    origin_planet: Mapped[str] = mapped_column(nullable=True)
+    users: Mapped[List["User"]] = relationship(secondary=association_table, back_populates='characters')
+
+    def __repr__(self):
+        return '<Character %r>' % self.name
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "name": self.name,
         }
